@@ -1,4 +1,4 @@
-# 🦁 FACON - Next Gen Fitness Command Center
+# FACON - Next Gen Fitness Command Center
 
 ![Status](https://img.shields.io/badge/Status-Operational-green)
 ![Tech](https://img.shields.io/badge/Tech-React%20%7C%20Node%20%7C%20AI-blue)
