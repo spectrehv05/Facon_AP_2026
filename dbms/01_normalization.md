@@ -1,184 +1,237 @@
 # Database Normalization – FACON Fitness Command Center
 
-## 1. Application Overview
+## 1. Introduction
 
-FACON is a fitness tracking application that allows users to record food intake, track nutritional values, monitor water intake, and manage daily goals.
+FACON Fitness Command Center is a fitness application that records food and
+water intake and tracks daily goals.
 
-The backend uses **Node.js**, **Express**, and **PostgreSQL**. The database tables documented here are based on the table definitions currently present in `server/index.js`.
+This normalization analysis is based on the PostgreSQL schema implemented
+in `server/index.js`. The current database contains two relations:
 
-This document describes the current schema and evaluates it against First, Second, Third, and Boyce-Codd Normal Forms (1NF, 2NF, 3NF, and BCNF).
+- `logs`
+- `goals`
 
-> **Scope note:** This document reflects the schema currently implemented in the repository. It does not assume the existence of user, food-catalogue, or weight-history tables unless they are added to the database implementation.
+The analysis follows First Normal Form (1NF), Second Normal Form (2NF),
+Third Normal Form (3NF), and Boyce-Codd Normal Form (BCNF).
 
-## 2. Current Database Schema
+Only functional dependencies supported by the current schema are assumed.
 
-The backend currently creates two tables: `logs` and `goals`.
+## 2. Existing Database Schema
 
-### 2.1 `logs` table
+### Relation 1: LOGS
 
-| Column | Data type | Constraint / default | Description |
-|---|---|---|---|
-| `id` | `VARCHAR(255)` | PRIMARY KEY | Unique identifier for a food/water log |
-| `date` | `VARCHAR(50)` | — | Date associated with the log |
-| `food` | `TEXT` | — | Food or meal description |
-| `calories` | `INTEGER` | — | Calories recorded |
-| `protein` | `INTEGER` | — | Protein amount recorded |
-| `carbs` | `INTEGER` | — | Carbohydrate amount recorded |
-| `fats` | `INTEGER` | — | Fat amount recorded |
-| `water_ml` | `INTEGER` | DEFAULT `0` | Water intake in millilitres |
-| `created_at` | `TIMESTAMP` | DEFAULT `CURRENT_TIMESTAMP` | Record creation timestamp |
+| Attribute | Data Type | Constraint |
+|---|---|---|
+| id | VARCHAR(255) | PRIMARY KEY |
+| date | VARCHAR(50) | |
+| food | TEXT | |
+| calories | INTEGER | |
+| protein | INTEGER | |
+| carbs | INTEGER | |
+| fats | INTEGER | |
+| water_ml | INTEGER | DEFAULT 0 |
+| created_at | TIMESTAMP | DEFAULT CURRENT_TIMESTAMP |
 
-**Primary key:** `id`
+Functional Dependency:
 
-### 2.2 `goals` table
+`id → date, food, calories, protein, carbs, fats, water_ml, created_at`
 
-| Column | Data type | Constraint / default | Description |
-|---|---|---|---|
-| `id` | `VARCHAR(255)` | PRIMARY KEY | Unique identifier for a goal |
-| `date` | `VARCHAR(50)` | — | Date associated with the goal |
-| `text` | `TEXT` | — | Goal description |
-| `completed` | `BOOLEAN` | DEFAULT `FALSE` | Whether the goal is completed |
-| `priority` | `VARCHAR(20)` | DEFAULT `'medium'` | Goal priority |
-| `created_at` | `TIMESTAMP` | DEFAULT `CURRENT_TIMESTAMP` | Record creation timestamp |
+The primary key `id` uniquely identifies every log record.
 
-**Primary key:** `id`
+### Relation 2: GOALS
 
-## 3. Functional Dependencies
+| Attribute | Data Type | Constraint |
+|---|---|---|
+| id | VARCHAR(255) | PRIMARY KEY |
+| date | VARCHAR(50) | |
+| text | TEXT | |
+| completed | BOOLEAN | DEFAULT FALSE |
+| priority | VARCHAR(20) | DEFAULT 'medium' |
+| created_at | TIMESTAMP | DEFAULT CURRENT_TIMESTAMP |
 
-Based on the primary keys defined in the current implementation, the following functional dependencies hold:
+Functional Dependency:
 
-For the `logs` relation:
+`id → date, text, completed, priority, created_at`
 
-```text
-id → date, food, calories, protein, carbs, fats, water_ml, created_at
-```
+The primary key `id` uniquely identifies every goal record.
 
-For the `goals` relation:
+## 3. First Normal Form (1NF)
 
-```text
-id → date, text, completed, priority, created_at
-```
+A relation is in 1NF when every attribute contains a single value
+and repeating groups or multivalued attributes are absent.
 
-The schema does not currently declare additional candidate keys or business rules such as a food description uniquely determining its nutritional values. Therefore, no such dependencies are assumed in this analysis.
+### LOGS_1NF
 
-## 4. First Normal Form (1NF)
+| id (PK) | date | food | calories | protein | carbs | fats | water_ml | created_at |
+|---|---|---|---|---|---|---|---|
 
-A relation is in 1NF when:
+FD:
 
-- Every column contains a single value for each row.
-- There are no repeating groups or arrays of values in a field.
-- Each row can be uniquely identified.
+`id → date, food, calories, protein, carbs, fats, water_ml, created_at`
 
-### Application to FACON
+### GOALS_1NF
 
-Both tables have primary keys (`logs.id` and `goals.id`) and use scalar database columns.
+| id (PK) | date | text | completed | priority | created_at |
+|---|---|---|---|---|---|
 
-The `logs.food` field is a text description. It is atomic for this design only when one log stores one food item or one meal description as a single recorded entry. If the application stores a comma-separated list of separate food items in this field, that field would not be atomic and the design would need a separate food-item/log-detail structure.
+FD:
 
-**1NF assessment:** The current schema is compatible with 1NF provided each `food` value represents one atomic log entry rather than a list of independently tracked food items.
+`id → date, text, completed, priority, created_at`
 
-## 5. Second Normal Form (2NF)
+Assessment:
 
-A relation is in 2NF when:
+- Every column stores a single database value.
+- Each relation has a primary key.
+- No repeating groups are represented as separate columns.
+- `food` is treated as one food entry or meal description per log.
+  If multiple food items are stored as a comma-separated list inside
+  one value, that data would not be atomic at the application level
+  and should be represented using separate food-item records.
 
-- It is already in 1NF.
-- Every non-key attribute is fully functionally dependent on the whole candidate key.
-- No non-key attribute depends on only part of a composite candidate key.
+Therefore, both relations satisfy 1NF under the above atomic-value
+assumption.
 
-### Application to FACON
+## 4. Second Normal Form (2NF)
 
-Both current tables use a single-column primary key:
+A relation is in 2NF when it is in 1NF and every non-prime attribute
+depends on the whole candidate key, not only part of it.
 
-- `logs`: `id`
-- `goals`: `id`
+### LOGS_2NF
 
-A single-column key cannot have a partial dependency on only part of a composite key. Under the functional dependencies listed above, all non-key attributes depend on the complete primary key.
+| id (PK) | date | food | calories | protein | carbs | fats | water_ml | created_at |
+|---|---|---|---|---|---|---|---|
 
-**2NF assessment:** Both `logs` and `goals` satisfy 2NF, assuming the 1NF condition described above is met.
+FD:
 
-## 6. Third Normal Form (3NF)
+`id → date, food, calories, protein, carbs, fats, water_ml, created_at`
 
-A relation is in 3NF when:
+### GOALS_2NF
 
-- It is already in 2NF.
-- No non-key attribute has a transitive dependency on a candidate key through another non-key attribute.
+| id (PK) | date | text | completed | priority | created_at |
+|---|---|---|---|---|---|
 
-### Application to FACON
+FD:
 
-In the current schema, the declared dependencies are from each table's primary key to its remaining attributes.
+`id → date, text, completed, priority, created_at`
 
-No additional dependency between non-key columns is established by the current table definitions. For example, the schema does not define a separate `food_id` or a food catalogue in which a food identifier determines nutritional values.
+Assessment:
 
-Therefore, based on the dependencies currently represented in the code, no transitive dependency has been identified.
+- Both relations use a single-attribute primary key.
+- Partial functional dependencies cannot occur with a single-attribute
+  candidate key.
+- No decomposition is required to remove partial dependencies.
 
-**3NF assessment:** Both tables satisfy 3NF under the functional dependencies currently established by the implementation.
+Therefore, both relations satisfy 2NF.
 
-## 7. Boyce-Codd Normal Form (BCNF)
+## 5. Third Normal Form (3NF)
 
-A relation is in BCNF when, for every non-trivial functional dependency:
+A relation is in 3NF when it is in 2NF and no non-key attribute
+transitively determines another non-key attribute.
 
-```text
-X → Y
-```
+### LOGS_3NF
 
-`X` must be a superkey.
+| id (PK) | date | food | calories | protein | carbs | fats | water_ml | created_at |
+|---|---|---|---|---|---|---|---|
 
-### Application to FACON
+FD:
 
-The current functional dependencies are:
+`id → date, food, calories, protein, carbs, fats, water_ml, created_at`
 
-```text
-logs.id  → all other attributes in logs
-goals.id → all other attributes in goals
-```
+### GOALS_3NF
 
-The determinants (`logs.id` and `goals.id`) are primary keys and therefore superkeys. No other non-trivial functional dependencies are specified in the current schema.
+| id (PK) | date | text | completed | priority | created_at |
+|---|---|---|---|---|---|
 
-**BCNF assessment:** Both tables satisfy BCNF under the functional dependencies currently known. This conclusion should be revisited if additional business rules or dependencies are introduced.
+FD:
 
-## 8. Final Normalized Schema (Current Implementation)
+`id → date, text, completed, priority, created_at`
 
-The current normalized design can be represented as:
+Assessment:
 
-```text
-LOGS(
-    id PRIMARY KEY,
-    date,
-    food,
-    calories,
-    protein,
-    carbs,
-    fats,
-    water_ml,
-    created_at
-)
+- No additional non-key-to-non-key functional dependencies have been
+  established in the current schema.
+- No transitive dependency is identified under the declared FDs.
+- No decomposition is necessary.
 
-GOALS(
-    id PRIMARY KEY,
-    date,
-    text,
-    completed,
-    priority,
-    created_at
-)
-```
+Therefore, both relations satisfy 3NF under the declared functional
+dependencies.
 
-There is currently no foreign-key relationship between these two tables in the implemented schema. Each table stores a separate kind of record.
+## 6. Boyce-Codd Normal Form (BCNF)
 
-## 9. Possible Future Improvements
+A relation is in BCNF when every non-trivial functional dependency
+has a superkey as its determinant.
 
-The following are design opportunities, not descriptions of tables that currently exist:
+### LOGS_BCNF
 
-1. **Use a date type:** Consider changing `date` from `VARCHAR(50)` to PostgreSQL `DATE` if the field always stores a calendar date.
-2. **Support multiple food items per meal:** If one meal can contain multiple independently tracked foods, introduce separate meal/log and food-item detail records rather than storing a list in `logs.food`.
-3. **Add user ownership:** If multiple users will use the application, introduce a `users` table and a `user_id` foreign key in user-owned records such as `logs` and `goals`.
-4. **Use a food catalogue when appropriate:** If the application needs reusable food records with standard nutritional values, a separate food catalogue can avoid repeating the same food metadata across logs.
-5. **Validate numeric values:** Add suitable checks for non-negative calories, macros, and water intake where required by the application.
+| id (PK) | date | food | calories | protein | carbs | fats | water_ml | created_at |
+|---|---|---|---|---|---|---|---|
 
-These improvements should be implemented in the database and backend before being described as part of the actual schema.
+FD:
 
-## 10. Conclusion
+`id → date, food, calories, protein, carbs, fats, water_ml, created_at`
 
-The current FACON database contains two relations: `logs` and `goals`. Both use a single-column primary key. Based on the functional dependencies established by the current implementation, the tables are in 2NF, 3NF, and BCNF. Their 1NF status depends on `logs.food` being stored as one atomic food or meal description per row.
+### GOALS_BCNF
 
-This analysis documents the existing database honestly and distinguishes implemented structures from possible future enhancements.
+| id (PK) | date | text | completed | priority | created_at |
+|---|---|---|---|---|---|
+
+FD:
+
+`id → date, text, completed, priority, created_at`
+
+Assessment:
+
+- The declared non-trivial FDs are determined by primary keys.
+- Each determinant (`id`) is a candidate key and therefore a superkey.
+- No BCNF violation is identified.
+
+Both relations satisfy BCNF under the declared functional dependencies.
+
+## 7. Final Normalized Schema
+
+The final schema remains unchanged because no decomposition is needed
+for the declared functional dependencies.
+
+### LOGS
+
+`logs(id, date, food, calories, protein, carbs, fats, water_ml, created_at)`
+
+Primary Key: `id`
+
+### GOALS
+
+`goals(id, date, text, completed, priority, created_at)`
+
+Primary Key: `id`
+
+| Relation | 1NF | 2NF | 3NF | BCNF |
+|---|---|---|---|---|
+| logs | Yes* | Yes | Yes | Yes |
+| goals | Yes | Yes | Yes | Yes |
+
+*1NF for logs assumes `food` represents one atomic food entry or meal
+description rather than a list of independently stored food items.
+
+## 8. Possible Future Improvements
+
+These are design suggestions and are not part of the current schema:
+
+- Use PostgreSQL `DATE` instead of `VARCHAR(50)` for date fields.
+- Introduce separate food-item records if a log contains multiple foods.
+- Add user ownership if the application supports multiple accounts.
+- Add appropriate validation constraints for nutritional values and
+  water intake.
+
+These improvements should only be implemented if required by the
+application's functionality.
+
+## 9. Conclusion
+
+The current FACON Fitness Command Center database contains the `logs`
+and `goals` relations. Under the functional dependencies established
+by their primary keys, both relations satisfy 2NF, 3NF, and BCNF.
+The 1NF assessment for `logs` depends on treating its `food` value
+as atomic.
+
+No unnecessary decomposition has been introduced, and the normalized
+schema accurately reflects the existing implementation.
