@@ -1,4 +1,6 @@
 # FACON
+* Live website link below
+https://faconex.netlify.app (see you on your fitness journey 👍🏻)
 
 **Track calories like money.**
 
